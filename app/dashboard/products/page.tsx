@@ -225,7 +225,7 @@ export default function ProductsPage() {
                 <h3 className="font-semibold text-lg">{product.name}</h3>
                 <p className="text-gray-600 mt-2 line-clamp-2">{product.description}</p>
                 <div className="mt-4 flex flex-wrap justify-between items-center gap-2">
-                  <span className="font-bold text-lg">{product.price} ر.س</span>
+                  <span className="font-bold text-lg">{product.price} ر.ي</span>
                   <div className="flex items-center gap-2">
                     <Button
                       variant={product.published ? "default" : "outline"}
