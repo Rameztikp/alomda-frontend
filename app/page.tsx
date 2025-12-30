@@ -36,6 +36,8 @@ const Page: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [displayProducts, setDisplayProducts] = useState<Product[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 12; // 12 products per page
     
     // تصفية المنتجات حسب الصنف المحدد
     useEffect(() => {
@@ -114,6 +116,7 @@ const Page: React.FC = () => {
             setProducts(productsWithCategories);
             setCategories(allCategories || []);
             setDisplayProducts(productsWithCategories);
+            setCurrentPage(1); // Reset to first page when products change
             
             console.log('تم تحديث واجهة المستخدم بنجاح');
             
@@ -138,16 +141,33 @@ const Page: React.FC = () => {
         });
     }, [fetchData]);
 
-    // تصفية المنتجات حسب الصنف النشط
+    // تصفية المنتجات حسب الصنف النشط وحساب الصفحات
     const filteredProducts = useMemo(() => {
         if (!activeCategory) return products;
         return products.filter(product => product.category_id === activeCategory);
     }, [products, activeCategory]);
     
-    // Update displayProducts when products or activeCategory changes
+    // حساب عدد الصفحات
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    
+    // حساب المنتجات المعروضة في الصفحة الحالية
+    const paginatedProducts = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredProducts, currentPage, itemsPerPage]);
+    
+    // تحديث المنتجات المعروضة عند تغيير التصفية أو الصفحة
     useEffect(() => {
         setDisplayProducts(activeCategory ? filteredProducts : products);
-    }, [filteredProducts, products, activeCategory]);
+        // Reset to first page when filter changes
+        if (currentPage !== 1) setCurrentPage(1);
+    }, [filteredProducts, products, activeCategory, currentPage]);
+    
+    // تغيير الصفحة
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     // معالجة طلب الواتساب
     const handleWhatsAppOrder = useCallback((product: Product) => {
@@ -218,19 +238,81 @@ const Page: React.FC = () => {
                                         إعادة المحاولة
                                     </button>
                                 </div>
-                            ) : displayProducts.length > 0 ? (
-                                displayProducts.map((product) => {
-                                    // تحضير البيانات لتكون متوافقة مع مكون ProductCard
-                                    const productData = {
-                                        id: product.id,
-                                        name_ar: product.name_ar || product.name || 'بدون اسم',
-                                        description_ar: product.description_ar || product.description || '',
-                                        price: product.price?.toString() || '0',
-                                        image_url: product.image_url || product.image || '',
-                                        category_id: product.category_id
-                                    };
-                                    return <DynamicProductCard key={product.id} product={productData} />;
-                                })
+                            ) : filteredProducts.length > 0 ? (
+                                <>
+                                    {paginatedProducts.map((product) => {
+                                        // تحضير البيانات لتكون متوافقة مع مكون ProductCard
+                                        const productData = {
+                                            id: product.id,
+                                            name_ar: product.name_ar || product.name || 'بدون اسم',
+                                            description_ar: product.description_ar || product.description || '',
+                                            price: product.price?.toString() || '0',
+                                            image_url: product.image_url || product.image || '',
+                                            category_id: product.category_id
+                                        };
+                                        return <DynamicProductCard key={product.id} product={productData} />;
+                                    })}
+                                    
+                                    {/* Pagination Controls */}
+                                    {totalPages > 1 && (
+                                        <div className="col-span-full flex justify-center mt-8 gap-2 flex-wrap">
+                                            <button
+                                                onClick={() => handlePageChange(1)}
+                                                disabled={currentPage === 1}
+                                                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                الأولى
+                                            </button>
+                                            <button
+                                                onClick={() => handlePageChange(currentPage - 1)}
+                                                disabled={currentPage === 1}
+                                                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                السابق
+                                            </button>
+                                            
+                                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                                let pageNum;
+                                                if (totalPages <= 5) {
+                                                    pageNum = i + 1;
+                                                } else if (currentPage <= 3) {
+                                                    pageNum = i + 1;
+                                                } else if (currentPage >= totalPages - 2) {
+                                                    pageNum = totalPages - 4 + i;
+                                                } else {
+                                                    pageNum = currentPage - 2 + i;
+                                                }
+                                                
+                                                return (
+                                                    <button
+                                                        key={pageNum}
+                                                        onClick={() => handlePageChange(pageNum)}
+                                                        className={`px-4 py-2 rounded-md border ${currentPage === pageNum 
+                                                            ? 'bg-primary text-white border-primary' 
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            })}
+                                            
+                                            <button
+                                                onClick={() => handlePageChange(currentPage + 1)}
+                                                disabled={currentPage === totalPages}
+                                                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                التالي
+                                            </button>
+                                            <button
+                                                onClick={() => handlePageChange(totalPages)}
+                                                disabled={currentPage === totalPages}
+                                                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                الأخيرة
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
                             ) : (
                                 <div className="col-span-full text-center p-10 bg-gray-100 rounded-xl">
                                     <p className="text-2xl text-gray-600">لا توجد منتجات متاحة حالياً.</p>

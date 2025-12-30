@@ -46,7 +46,7 @@ export default function Footer() {
             <h3 className="text-xl font-bold mb-4">تابعنا على</h3>
             <div className="flex space-x-4 space-x-reverse">
               <Link 
-                href="https://www.facebook.com/your-facebook-page" 
+                href="https://www.facebook.com/share/1CpMduMkrG/?mibextid=wwXIfr" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 aria-label="Facebook"

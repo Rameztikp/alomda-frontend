@@ -28,6 +28,15 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    image: null as File | null,
+    category_id: '',
+    published: false
+  });
+  const [editPreviewUrl, setEditPreviewUrl] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -38,8 +47,12 @@ export default function ProductsPage() {
     published: false
   });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([{ id: 'all', name: 'الكل' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     fetchProducts();
@@ -72,7 +85,8 @@ export default function ProductsPage() {
         .order('name', { ascending: true });
 
       if (error) throw error;
-      setCategories(data || []);
+      // Keep the 'all' option and add the fetched categories
+      setCategories(prev => [...prev, ...(data || [])]);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -80,7 +94,74 @@ export default function ProductsPage() {
 
   const handleEditClick = (product: Product) => {
     setEditingProduct(product);
+    setEditFormData({
+      name: product.name,
+      description: product.description,
+      price: product.price.toString(),
+      image: null,
+      category_id: product.category_id,
+      published: product.published
+    });
+    setEditPreviewUrl(product.image || null);
     setIsEditModalOpen(true);
+  };
+
+  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditFormData(prev => ({ ...prev, image: file }));
+      setEditPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target as HTMLInputElement;
+    
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
+             type === 'number' ? value.replace(/[^0-9.]/g, '') : 
+             value
+    }));
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct || isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append("name", editFormData.name);
+      formDataToSend.append("description", editFormData.description);
+      formDataToSend.append("price", editFormData.price);
+      formDataToSend.append("category_id", editFormData.category_id);
+      formDataToSend.append("published", String(editFormData.published));
+      formDataToSend.append("_method", "PATCH");
+
+      if (editFormData.image) {
+        formDataToSend.append("image", editFormData.image);
+      }
+
+      const res = await fetch(`/api/products/${editingProduct.id}`, {
+        method: "POST",
+        body: formDataToSend,
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || "فشل تحديث المنتج");
+      }
+
+      await fetchProducts();
+      setIsEditModalOpen(false);
+    } catch (error) {
+      alert((error as Error).message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleTogglePublish = async (productId: string, published: boolean) => {
@@ -186,6 +267,26 @@ export default function ProductsPage() {
     }
   };
 
+  // Filter products based on search query and category
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo(0, 0);
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -202,14 +303,42 @@ export default function ProductsPage() {
         <h1 className="text-2xl font-bold">المنتجات</h1>
         <Button onClick={() => setIsAddModalOpen(true)}>إضافة منتج جديد</Button>
       </div>
+
+      {/* Search and Filter Controls */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex-1">
+          <Input
+            type="text"
+            placeholder="ابحث عن منتج..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full"
+          />
+        </div>
+        <div className="w-full md:w-64">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       
-      {products.length === 0 ? (
+      {filteredProducts.length === 0 ? (
         <div className="mt-4">
-          <p className="text-gray-600">لا توجد منتجات مضافة بعد</p>
+          <p className="text-center text-gray-500 mt-4">
+            {products.length === 0 ? 'لا توجد منتجات متاحة' : 'لا توجد نتائج مطابقة للبحث'}
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {paginatedProducts.map((product) => (
             <div key={product.id} className="border rounded-lg overflow-hidden shadow">
               {product.image && (
                 <div className="relative h-48 w-full">
@@ -256,72 +385,213 @@ export default function ProductsPage() {
           ))}
         </div>
       )}
+      
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-8 gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 text-sm"
+          >
+            الأولى
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 text-sm"
+          >
+            السابق
+          </Button>
+          
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            
+            return (
+              <Button
+                key={pageNum}
+                variant={currentPage === pageNum ? "default" : "outline"}
+                onClick={() => handlePageChange(pageNum)}
+                className="px-3 py-1 text-sm min-w-[40px]"
+              >
+                {pageNum}
+              </Button>
+            );
+          })}
+          
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 text-sm"
+          >
+            التالي
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 text-sm"
+          >
+            الأخيرة
+          </Button>
+        </div>
+      )}
 
       {/* Edit Modal */}
       <Dialog.Root open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg w-full max-w-md z-50">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg w-full max-w-md z-50 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <Dialog.Title className="text-xl font-bold">تعديل المنتج</Dialog.Title>
-              <Dialog.Close className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
+              <Dialog.Title className="text-xl font-semibold">تعديل المنتج</Dialog.Title>
+              <Dialog.Close asChild>
+                <button className="text-gray-500 hover:text-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
               </Dialog.Close>
             </div>
             
             {editingProduct && (
-              <div className="space-y-4">
+              <form onSubmit={handleEditSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
-                  <input
+                  <Label htmlFor="edit-name">اسم المنتج</Label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    value={editFormData.name}
+                    onChange={handleEditChange}
+                    className="mt-1"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-description">الوصف</Label>
+                  <Textarea
+                    id="edit-description"
+                    name="description"
+                    value={editFormData.description}
+                    onChange={handleEditChange}
+                    rows={3}
+                    className="mt-1"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-price">السعر (ر.ي)</Label>
+                  <Input
+                    id="edit-price"
+                    name="price"
                     type="text"
-                    value={editingProduct.name}
-                    onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
-                    className="w-full p-2 border rounded"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الوصف</label>
-                  <textarea
-                    value={editingProduct.description}
-                    onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})}
-                    className="w-full p-2 border rounded h-24"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">السعر</label>
-                  <input
-                    type="number"
-                    value={editingProduct.price}
-                    onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})}
-                    className="w-full p-2 border rounded"
+                    inputMode="decimal"
+                    value={editFormData.price}
+                    onChange={handleEditChange}
+                    className="mt-1"
+                    required
                   />
                 </div>
 
-                <div className="flex items-center space-x-2 py-2">
-                  <input
-                    type="checkbox"
-                    id="published"
-                    checked={editingProduct.published || false}
-                    onChange={(e) => setEditingProduct({...editingProduct, published: e.target.checked})}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <label htmlFor="published" className="text-sm font-medium text-gray-700">
-                    منشور
-                  </label>
+                <div>
+                  <Label htmlFor="edit-category">الفئة</Label>
+                  <select
+                    id="edit-category"
+                    name="category_id"
+                    value={editFormData.category_id}
+                    onChange={handleEditChange}
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    required
+                  >
+                    <option value="">اختر فئة</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Dialog.Close asChild>
-                    <Button variant="outline">إلغاء</Button>
-                  </Dialog.Close>
-                  <Button onClick={() => handleSaveChanges(editingProduct)}>
-                    حفظ التغييرات
+                <div>
+                  <Label htmlFor="edit-image">صورة المنتج</Label>
+                  <div className="mt-1 flex items-center">
+                    <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                      تغيير الصورة
+                      <input
+                        id="edit-image"
+                        name="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEditFileChange}
+                        className="sr-only"
+                      />
+                    </label>
+                    {editFormData.image && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditFormData(prev => ({ ...prev, image: null }));
+                          setEditPreviewUrl(null);
+                        }}
+                        className="ml-2 text-red-600 hover:text-red-800 text-sm"
+                      >
+                        حذف
+                      </button>
+                    )}
+                  </div>
+                  
+                  {(editPreviewUrl || editingProduct.image) && (
+                    <div className="mt-2 relative w-32 h-32 border rounded-md overflow-hidden">
+                      <Image
+                        src={editPreviewUrl || editingProduct.image}
+                        alt={editingProduct.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  <Switch
+                    id="edit-published"
+                    name="published"
+                    checked={editFormData.published}
+                    onCheckedChange={(checked) => 
+                      setEditFormData(prev => ({ ...prev, published: checked }))
+                    }
+                  />
+                  <Label htmlFor="edit-published">نشر المنتج</Label>
+                </div>
+                
+                <div className="flex justify-end space-x-2 pt-4 rtl:space-x-reverse">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditModalOpen(false)}
+                    disabled={isSubmitting}
+                  >
+                    إلغاء
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'جاري الحفظ...' : 'حفظ التغييرات'}
                   </Button>
                 </div>
-              </div>
+              </form>
             )}
           </Dialog.Content>
         </Dialog.Portal>
