@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FaFacebook, FaInstagram, FaMapMarkerAlt, FaPhone, FaEnvelope } from 'react-icons/fa';
+import { FaFacebook, FaInstagram, FaMapMarkerAlt, FaPhone, FaEnvelope, FaCode } from 'react-icons/fa';
 
 export default function Footer() {
   return (
@@ -30,14 +30,14 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* روابط سريعة */}
+          {/* قائمة سريعة */}
           <div>
             <h3 className="text-xl font-bold mb-4">روابط سريعة</h3>
             <ul className="space-y-2">
-              <li><Link href="/about" className="text-gray-200 hover:text-amber-400 transition-colors">من نحن</Link></li>
-              <li><Link href="/products" className="text-gray-200 hover:text-amber-400 transition-colors">المنتجات</Link></li>
-              <li><Link href="/contact" className="text-gray-200 hover:text-amber-400 transition-colors">اتصل بنا</Link></li>
-              <li><Link href="/privacy" className="text-gray-200 hover:text-amber-400 transition-colors">سياسة الخصوصية</Link></li>
+              <li><span className="text-gray-200">من نحن</span></li>
+              <li><span className="text-gray-200">المنتجات</span></li>
+              <li><span className="text-gray-200">اتصل بنا</span></li>
+              <li><span className="text-gray-200">سياسة الخصوصية</span></li>
             </ul>
           </div>
 
@@ -63,15 +63,40 @@ export default function Footer() {
               >
                 <FaInstagram size={20} />
               </Link>
+              <Link 
+                href="https://wa.me/967782478767" 
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="تواصل مع المطور"
+                title="تواصل مع المطور - رامز طلال"
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white p-3 rounded-full transition-all duration-300 transform hover:scale-110 shadow-lg"
+              >
+                <FaCode size={20} />
+              </Link>
             </div>
           </div>
         </div>
 
         {/* حقوق النشر */}
-        <div className="border-t border-gray-700/50 mt-12 pt-8 text-center">
+        <div className="border-t border-gray-700/50 mt-12 pt-6 text-center">
           <p className="text-gray-300">
             © {new Date().getFullYear()} جميع الحقوق محفوظة لشركة العمدة ستار
           </p>
+          {/* شارة المطور */}
+          <div className="mt-4">
+            <div className="inline-flex items-center space-x-2 space-x-reverse bg-gray-800/50 backdrop-blur-sm px-3 py-1 rounded-full border border-amber-500/20">
+              <span className="text-amber-400 text-xs">تصميم وتطوير</span>
+              <a 
+                href="https://wa.me/967782478767" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1 space-x-reverse group"
+              >
+                <span className="text-white text-sm font-medium group-hover:text-amber-400 transition-colors">رامز طلال</span>
+                <FaCode className="text-amber-400 w-3 h-3" />
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

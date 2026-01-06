@@ -1,7 +1,9 @@
 export interface Category {
   id: string;  // UUID
   name: string;
-  created_at?: string;
+  image?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Product {
