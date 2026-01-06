@@ -13,7 +13,8 @@ const DynamicProductCard = dynamic(() => import('./components/ProductCard'), {
 });
 
 // المكون الرئيسي للصفحة
-const Page = (): JSX.Element => {
+const Page = () => 
+ {
     // الثوابت
     const WHATSAPP_NUMBER = '967782888988'; // رقم الواتساب الرسمي
     const PHONE_NUMBERS = ['04 235 000', '782 888 888'];

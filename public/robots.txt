@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://alomdastar.com
+
+# Sitemaps
+Sitemap: https://alomdastar.com/sitemap.xml
